@@ -185,10 +185,6 @@ loadstring(game:HttpGet("https://api.luarmor.net/files/v4/loaders/fbcd1d25889a84
 end)
 
 task.spawn(function()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/koop232/22s-hub/refs/heads/main/Visual"))()
-end)
-
-task.spawn(function()
 loadstring(game:HttpGet("https://raw.githubusercontent.com/koop232/22s-hub/refs/heads/main/Loading"))()
 end)
 
