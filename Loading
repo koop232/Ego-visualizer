@@ -1,0 +1,160 @@
+-- BEST-POSSIBLE "BLOCK SETTINGS" LOADING SCREEN
+-- LocalScript in StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+-- ===== SETTINGS =====
+local DURATION = 60
+local UPDATE_RATE = 0.05
+
+-- ===== Helpers =====
+local function pcallSetCore(name, value)
+	pcall(function()
+		StarterGui:SetCore(name, value)
+	end)
+end
+
+local function safeSetCoreGuiEnabled(coreType, enabled)
+	pcall(function()
+		StarterGui:SetCoreGuiEnabled(coreType, enabled)
+	end)
+end
+
+-- ===== Block keys that normally open menus =====
+local BLOCK_ACTION = "BLOCK_MENU_KEYS_DURING_LOADING"
+
+local function sinkAction(_, inputState, _)
+	return Enum.ContextActionResult.Sink
+end
+
+local function enableKeyBlocking()
+	-- High priority sink = blocks these keys for most players on PC
+	ContextActionService:BindActionAtPriority(
+		BLOCK_ACTION,
+		sinkAction,
+		false,
+		999999,
+		Enum.KeyCode.Escape,     -- Roblox menu
+		Enum.KeyCode.Tab,        -- playerlist focus sometimes
+		Enum.KeyCode.B,          -- backpack
+		Enum.KeyCode.Backquote,  -- dev console-ish
+		Enum.KeyCode.F9,         -- dev console
+		Enum.KeyCode.F1, Enum.KeyCode.F2, Enum.KeyCode.F3, Enum.KeyCode.F4
+	)
+end
+
+local function disableKeyBlocking()
+	pcall(function()
+		ContextActionService:UnbindAction(BLOCK_ACTION)
+	end)
+end
+
+-- ===== Hide Roblox UI (prevents obvious leaks) =====
+pcallSetCore("TopbarEnabled", false) -- hides menu button
+pcallSetCore("ChatActive", false)
+
+safeSetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+safeSetCoreGuiEnabled(Enum.CoreGuiType.Chat, false)
+safeSetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+pcall(function()
+	safeSetCoreGuiEnabled(Enum.CoreGuiType.EmotesMenu, false)
+end)
+
+enableKeyBlocking()
+
+-- ===== Create top-layer loading UI =====
+local gui = Instance.new("ScreenGui")
+gui.Name = "TOP_LOADING_SCREEN"
+gui.IgnoreGuiInset = true
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 999999
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local background = Instance.new("Frame")
+background.Size = UDim2.new(1,0,1,0)
+background.BackgroundColor3 = Color3.fromRGB(10,10,10)
+background.BorderSizePixel = 0
+background.ZIndex = 999999
+background.Parent = gui
+
+-- Modal input blocker (eats taps/clicks)
+local blocker = Instance.new("TextButton")
+blocker.Size = UDim2.new(1,0,1,0)
+blocker.BackgroundTransparency = 1
+blocker.Text = ""
+blocker.AutoButtonColor = false
+blocker.ZIndex = 1000000
+blocker.Modal = true
+blocker.Parent = background
+
+-- Extra: if they try right-click / inputs, eat them
+blocker.InputBegan:Connect(function() end)
+
+local loadingText = Instance.new("TextLabel")
+loadingText.Size = UDim2.new(1,0,0,80)
+loadingText.Position = UDim2.new(0,0,0.43,0)
+loadingText.BackgroundTransparency = 1
+loadingText.Font = Enum.Font.GothamBold
+loadingText.TextColor3 = Color3.fromRGB(255,255,255)
+loadingText.TextScaled = true
+loadingText.Text = "Loading... 0%"
+loadingText.ZIndex = 1000001
+loadingText.Parent = background
+
+local barBack = Instance.new("Frame")
+barBack.Size = UDim2.new(0.6,0,0,22)
+barBack.Position = UDim2.new(0.2,0,0.55,0)
+barBack.BackgroundColor3 = Color3.fromRGB(40,40,40)
+barBack.BorderSizePixel = 0
+barBack.ZIndex = 1000001
+barBack.Parent = background
+Instance.new("UICorner", barBack).CornerRadius = UDim.new(0,12)
+
+local bar = Instance.new("Frame")
+bar.Size = UDim2.new(0,0,1,0)
+bar.BackgroundColor3 = Color3.fromRGB(255,20,147)
+bar.BorderSizePixel = 0
+bar.ZIndex = 1000002
+bar.Parent = barBack
+Instance.new("UICorner", bar).CornerRadius = UDim.new(0,12)
+
+-- ===== Progress (fast then slow) =====
+local start = tick()
+while true do
+	local elapsed = tick() - start
+	local progress = math.clamp(elapsed / DURATION, 0, 1)
+
+	-- ease-out curve: fast start, slow finish
+	local eased = 1 - (1 - progress)^3
+
+	local percent = math.floor(eased * 100 + 0.5)
+	loadingText.Text = "Loading... " .. percent .. "%"
+	bar.Size = UDim2.new(eased, 0, 1, 0)
+
+	if progress >= 1 then break end
+	task.wait(UPDATE_RATE)
+end
+
+loadingText.Text = "Loading Complete!"
+task.wait(0.6)
+
+-- ===== Restore everything =====
+gui:Destroy()
+
+disableKeyBlocking()
+
+pcallSetCore("TopbarEnabled", true)
+pcallSetCore("ChatActive", true)
+
+safeSetCoreGuiEnabled(Enum.CoreGuiType.Backpack, true)
+safeSetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+safeSetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, true)
+pcall(function()
+	safeSetCoreGuiEnabled(Enum.CoreGuiType.EmotesMenu, true)
+end)
