@@ -1,4 +1,4 @@
- -- BEST-POSSIBLE "BLOCK SETTINGS" LOADING SCREEN
+-- BEST-POSSIBLE "BLOCK SETTINGS" LOADING SCREEN
 -- LocalScript in StarterPlayerScripts
 
 local Players = game:GetService("Players")
