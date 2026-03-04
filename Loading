@@ -9,7 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 -- ===== SETTINGS =====
-local DURATION = 60
+local DURATION = 10
 local UPDATE_RATE = 0.05
 
 -- ===== Helpers =====
