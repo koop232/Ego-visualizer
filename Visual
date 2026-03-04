@@ -1,0 +1,199 @@
+--// Small Visual Brainrot UI (Movable tiles + prices)
+--// NOTE: Visual-only. No trading automation.
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+
+-- Pick best parent (works in many environments)
+local function pickParent()
+	if typeof(gethui) == "function" then
+		local ok, res = pcall(gethui)
+		if ok and res then return res end
+	end
+	if game:GetService("CoreGui") then
+		return game:GetService("CoreGui")
+	end
+	return player:WaitForChild("PlayerGui")
+end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "VisualBrainrotUI"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = pickParent()
+
+-- Main window
+local main = Instance.new("Frame")
+main.Name = "Main"
+main.Size = UDim2.new(0, 280, 0, 220)
+main.Position = UDim2.new(0.5, -140, 0.55, -110)
+main.BackgroundColor3 = Color3.fromRGB(12,12,12)
+main.BorderSizePixel = 0
+main.Parent = gui
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
+
+local mainStroke = Instance.new("UIStroke", main)
+mainStroke.Thickness = 2
+mainStroke.Color = Color3.fromRGB(0,255,200)
+mainStroke.Transparency = 0.2
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -12, 0, 32)
+title.Position = UDim2.new(0, 6, 0, 6)
+title.BackgroundTransparency = 1
+title.Text = "Add a Visual Brainrot"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.TextColor3 = Color3.fromRGB(255,255,255)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = main
+
+-- Helper: make any frame/button draggable (mouse + touch)
+local function makeDraggable(dragHandle: GuiObject, moveTarget: GuiObject)
+	local dragging = false
+	local dragStart, startPos
+
+	dragHandle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = moveTarget.Position
+		end
+	end)
+
+	dragHandle.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+
+	UIS.InputChanged:Connect(function(input)
+		if not dragging then return end
+		if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+
+		local delta = input.Position - dragStart
+		moveTarget.Position = UDim2.new(
+			startPos.X.Scale, startPos.X.Offset + delta.X,
+			startPos.Y.Scale, startPos.Y.Offset + delta.Y
+		)
+	end)
+end
+
+-- Drag the whole window by the title
+makeDraggable(title, main)
+
+-- Area where tiles live (free layout so you can move them)
+local area = Instance.new("Frame")
+area.Name = "Area"
+area.Size = UDim2.new(1, -12, 1, -48)
+area.Position = UDim2.new(0, 6, 0, 40)
+area.BackgroundTransparency = 1
+area.Parent = main
+
+-- Tile builder (movable tile + image + name + price)
+local function createTile(opts)
+	-- opts: {Name, ImageId, PriceText, StartPos}
+	local tile = Instance.new("Frame")
+	tile.Name = opts.Name .. "_Tile"
+	tile.Size = UDim2.new(0, 120, 0, 140)
+	tile.Position = opts.StartPos or UDim2.new(0, 0, 0, 0)
+	tile.BackgroundColor3 = Color3.fromRGB(20,20,20)
+	tile.BorderSizePixel = 0
+	tile.Parent = area
+	Instance.new("UICorner", tile).CornerRadius = UDim.new(0, 12)
+
+	local stroke = Instance.new("UIStroke", tile)
+	stroke.Thickness = 2
+	stroke.Color = Color3.fromRGB(80,80,80)
+	stroke.Transparency = 0.25
+
+	-- Image
+	local img = Instance.new("ImageLabel")
+	img.Name = "Icon"
+	img.Size = UDim2.new(1, -16, 0, 86)
+	img.Position = UDim2.new(0, 8, 0, 8)
+	img.BackgroundTransparency = 1
+	img.ScaleType = Enum.ScaleType.Fit
+	img.Image = "rbxassetid://" .. tostring(opts.ImageId)
+	img.Parent = tile
+
+	-- Name (also helps if image doesn't load)
+	local name = Instance.new("TextLabel")
+	name.Name = "Name"
+	name.Size = UDim2.new(1, -12, 0, 18)
+	name.Position = UDim2.new(0, 6, 0, 96)
+	name.BackgroundTransparency = 1
+	name.Text = opts.Name
+	name.Font = Enum.Font.GothamBold
+	name.TextSize = 14
+	name.TextColor3 = Color3.fromRGB(255,255,255)
+	name.TextXAlignment = Enum.TextXAlignment.Center
+	name.Parent = tile
+
+	-- Price
+	local price = Instance.new("TextLabel")
+	price.Name = "Price"
+	price.Size = UDim2.new(1, -12, 0, 18)
+	price.Position = UDim2.new(0, 6, 1, -22)
+	price.BackgroundTransparency = 1
+	price.Text = opts.PriceText or ""
+	price.Font = Enum.Font.GothamBold
+	price.TextSize = 14
+	price.TextColor3 = Color3.fromRGB(220,220,220)
+	price.TextXAlignment = Enum.TextXAlignment.Center
+	price.Parent = tile
+
+	-- Click highlight (visual)
+	local button = Instance.new("TextButton")
+	button.Name = "ClickLayer"
+	button.Size = UDim2.new(1,0,1,0)
+	button.BackgroundTransparency = 1
+	button.Text = ""
+	button.Parent = tile
+
+	local selected = false
+	button.MouseButton1Click:Connect(function()
+		selected = not selected
+		if selected then
+			stroke.Color = Color3.fromRGB(0,255,200)
+			stroke.Transparency = 0
+		else
+			stroke.Color = Color3.fromRGB(80,80,80)
+			stroke.Transparency = 0.25
+		end
+	end)
+
+	-- Make the tile movable (drag anywhere on the tile)
+	makeDraggable(button, tile)
+
+	return tile
+end
+
+-- Your tiles (with prices)
+createTile({
+	Name = "Elephant",
+	ImageId = 108566531415256,
+	PriceText = "$6.7B/s",
+	StartPos = UDim2.new(0, 0, 0, 0)
+})
+
+createTile({
+	Name = "Dragon",
+	ImageId = 84298368351446,
+	PriceText = "$1.6B/s",
+	StartPos = UDim2.new(0, 140, 0, 0)
+})
+
+-- Small hint label if images don't load
+local hint = Instance.new("TextLabel")
+hint.Size = UDim2.new(1, -12, 0, 18)
+hint.Position = UDim2.new(0, 6, 1, -20)
+hint.BackgroundTransparency = 1
+hint.Text = "If pics don’t show, those IDs must be Image/Decal assets."
+hint.Font = Enum.Font.Gotham
+hint.TextSize = 12
+hint.TextColor3 = Color3.fromRGB(170,170,170)
+hint.TextXAlignment = Enum.TextXAlignment.Left
+hint.Parent = main
